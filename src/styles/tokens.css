@@ -1,0 +1,101 @@
+:root {
+  color-scheme: light;
+
+  /* Brand */
+  --orange: #ffa500;
+  --orange-hover: #f29a00;
+  --orange-press: #e08e00;
+  --orange-text: #9a5a00; /* orange for text on light surfaces (≥4.5:1) */
+  --orange-50: #fffaf1;
+  --orange-100: #fff4df; /* selected surface */
+  --orange-200: #ffe2ad;
+
+  /* Neutrals */
+  --ink: #24241f;
+  --ink-2: #3e3e37;
+  --muted: #6b6b63;
+  --faint: #8e8d84;
+  --line: #e9e6df;
+  --line-strong: #d8d3c8;
+  --bg: #faf9f6;
+  --surface: #ffffff;
+  --surface-2: #f5f3ee;
+
+  /* Status */
+  --green: #2e7d4f;
+  --green-50: #ebf5ee;
+  --red: #b42318;
+  --red-50: #fdeeec;
+  --blue-50: #eef3fb;
+  --blue: #2b5ea7;
+
+  /* Type */
+  --font: 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fs-xs: 0.8125rem; /* 13 */
+  --fs-sm: 0.9375rem; /* 15 */
+  --fs-md: 1.0625rem; /* 17 */
+  --fs-lg: 1.25rem; /* 20 */
+  --fs-xl: 1.625rem; /* 26 */
+  --fs-2xl: clamp(1.75rem, 1.2rem + 1.6vw, 2.375rem);
+  --fs-hero: clamp(2.5rem, 1.4rem + 3.6vw, 4.25rem);
+  --fs-price: clamp(2.25rem, 1.7rem + 1.4vw, 2.75rem);
+
+  /* 8px rhythm */
+  --s-half: 4px;
+  --s-1: 8px;
+  --s-2: 16px;
+  --s-3: 24px;
+  --s-4: 32px;
+  --s-5: 40px;
+  --s-6: 48px;
+  --s-8: 64px;
+  --s-10: 80px;
+
+  /* Shape */
+  --r-xl: 28px;
+  --r-lg: 24px;
+  --r-md: 16px;
+  --r-sm: 12px;
+  --r-xs: 8px;
+  --r-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(36, 36, 31, 0.05);
+  --shadow-md: 0 1px 2px rgba(36, 36, 31, 0.04), 0 16px 40px -24px rgba(36, 36, 31, 0.22);
+  --shadow-lg: 0 2px 4px rgba(36, 36, 31, 0.04), 0 28px 64px -28px rgba(36, 36, 31, 0.3);
+
+  --focus: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink);
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur: 180ms;
+
+  --container: 1200px;
+  --gutter: 16px;
+  --header-h: 64px;
+  --touch: 48px;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --gutter: 24px;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 32px;
+    --header-h: 76px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
