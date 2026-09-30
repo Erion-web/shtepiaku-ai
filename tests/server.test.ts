@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { createApp } from '../server/app';
-import { openLeadStore, type LeadStore } from '../server/db';
+import { openLeadStore } from '../server/db';
 import { createGroqExplainer, validateExplanation, type Explainer } from '../server/ai';
 import { completeAnswers, office } from './fixtures';
 
@@ -54,16 +54,16 @@ describe('lead submission', () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.dataset).toBe('demo');
-    const [lead] = (s.store as LeadStore).list('demo');
+    const [lead] = await s.store.list('demo');
     expect(lead.companyName).toBe('Dardania Tech');
     expect(lead.pricingId).toBe('demo-2026.09');
     expect(lead.monthlyMin).toBeGreaterThan(0);
-    expect(s.store.list('live')).toHaveLength(0);
+    expect((await s.store.list('live'))).toHaveLength(0);
   });
 
   it('ignores any price sent by the client', async () => {
     await s.post('/api/leads', { ...submission(), estimate: { monthly: { min: 1, max: 2 } } });
-    expect(s.store.list('demo')[0].monthlyMin).toBeGreaterThan(2);
+    expect((await s.store.list('demo'))[0].monthlyMin).toBeGreaterThan(2);
   });
 
   it('retrying with the same idempotency key does not create a duplicate', async () => {
@@ -74,31 +74,31 @@ describe('lead submission', () => {
     const b = await second.json();
     expect(b.id).toBe(a.id);
     expect(b.duplicate).toBe(true);
-    expect(s.store.list('demo')).toHaveLength(1);
+    expect((await s.store.list('demo'))).toHaveLength(1);
   });
 
   it('treats an identical request with a new key as a duplicate within the window', async () => {
     await s.post('/api/leads', submission());
     const res = await s.post('/api/leads', submission());
     expect((await res.json()).duplicate).toBe(true);
-    expect(s.store.list('demo')).toHaveLength(1);
+    expect((await s.store.list('demo'))).toHaveLength(1);
   });
 
   it('requires an email or phone', async () => {
     const res = await s.post('/api/leads', submission({ contact: { fullName: 'Arta', preferredContact: 'email', email: '', phone: '' } }));
     expect(res.status).toBe(400);
-    expect(s.store.list('demo')).toHaveLength(0);
+    expect((await s.store.list('demo'))).toHaveLength(0);
   });
 
   it('rejects honeypot and too-fast submissions', async () => {
     expect((await s.post('/api/leads', submission({ website: 'http://spam' }))).status).toBe(400);
     expect((await s.post('/api/leads', submission({ elapsedMs: 300 }))).status).toBe(400);
-    expect(s.store.list('demo')).toHaveLength(0);
+    expect((await s.store.list('demo'))).toHaveLength(0);
   });
 
   it('reports a storage failure instead of success', async () => {
     const broken = setup();
-    broken.store.insert = () => {
+    broken.store.insert = async () => {
       throw new Error('disk full');
     };
     const res = await broken.post('/api/leads', submission());
@@ -111,7 +111,7 @@ describe('lead submission', () => {
     const cfg = await (await live.app.request('/api/config')).json();
     expect(cfg.estimatesEnabled).toBe(false);
     await live.post('/api/leads', submission());
-    const [lead] = live.store.list('live');
+    const [lead] = await live.store.list('live');
     expect(lead.monthlyMin).toBeNull();
     expect(lead.pricingId).toBeNull();
   });
