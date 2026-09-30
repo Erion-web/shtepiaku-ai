@@ -29,7 +29,7 @@ Booth mode (shared tablets): open `/?booth=1` once on the device, or switch it o
 | AI explanation (server-side, validated) | `server/ai.ts` |
 | API, validation, spam and duplicate handling | `server/app.ts`, `shared/schema.ts` |
 | Lead storage (real and demo in separate tables) | `server/store.ts` (contract), `server/supabase-store.ts` (hosted), `server/db.ts` (local SQLite) |
-| Vercel entry | `api/index.ts`, `vercel.json` |
+| Netlify function and routing | `netlify/functions/api.mts`, `netlify.toml` |
 
 The engine runs in the browser for instant recalculation and again on the server when a request is submitted; stored estimates always come from the server.
 
@@ -56,15 +56,15 @@ Set `GROQ_API_KEY` to enable AI-written explanations through Groq (`GROQ_MODEL`,
 - Spam protection: honeypot field, minimum fill time, per-IP rate limits. Retries reuse an idempotency key, and identical requests within 10 minutes are de-duplicated.
 - With `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set, leads are stored in Supabase; otherwise locally in `DATA_DIR/leads.sqlite`.
 
-## Deploy: Supabase + Vercel
+## Deploy: Supabase + Netlify
 
 1. **Supabase** — create a project. In **SQL Editor**, run `supabase/migrations/0001_leads.sql`. It creates `leads` and `demo_leads` with row-level security on and no public policies, so the anon key cannot read or write leads.
 2. From **Project Settings → API**, copy the **Project URL** and the **service_role** key.
-3. **Vercel** — push the repo to GitHub and import it (**Add New → Project**). The framework is detected as Vite; `vercel.json` sets the build, output and API routing.
-4. In **Settings → Environment Variables**, add:
-   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STAFF_PASSWORD`, `SESSION_SECRET` (`openssl rand -hex 32`), `GROQ_API_KEY`, `GROQ_MODEL=openai/gpt-oss-120b`, `PRICING_MODE=demo`.
-5. Deploy. The public link is `https://<project>.vercel.app`; the staff dashboard is at `/staff`.
+3. **Netlify** — import the GitHub repo. `netlify.toml` sets the build command, publish folder, Node version and the `/api/*` routing, so leave the build settings in the UI empty (or matching).
+4. In **Site configuration → Environment variables**, add:
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STAFF_PASSWORD`, `SESSION_SECRET` (`openssl rand -hex 32`), `GROQ_API_KEY`, `GROQ_MODEL=openai/gpt-oss-120b`, `PRICING_MODE=demo`. (`PORT` and `DATA_DIR` are not used on Netlify.)
+5. Deploy. The public link is `https://<site>.netlify.app`; the staff dashboard is at `/staff`.
 
 Without the Supabase variables the hosted API answers `503 server_not_configured` rather than accepting requests it cannot store.
 
-Rate limits are kept in memory per serverless instance, so on Vercel they are best-effort; idempotency keys and duplicate detection are enforced in the database.
+Rate limits are kept in memory per serverless instance, so on Netlify they are best-effort; idempotency keys and duplicate detection are enforced in the database.

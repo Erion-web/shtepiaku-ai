@@ -31,8 +31,8 @@ const SESSION_COOKIE = 'sh_staff';
 const SESSION_TTL = 8 * 60 * 60 * 1000;
 
 function clientKey(c: Context): string {
-  // Vercel sets x-real-ip itself; locally there is no proxy and the socket address is used.
-  const real = c.req.header('x-real-ip');
+  // Netlify sets x-nf-client-connection-ip itself; locally there is no proxy and the socket address is used.
+  const real = c.req.header('x-nf-client-connection-ip') ?? c.req.header('x-real-ip');
   if (real) return real;
   const fwd = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
   if (fwd) return fwd;

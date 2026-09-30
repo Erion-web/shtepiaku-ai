@@ -1,5 +1,5 @@
 // Builds the API from environment variables. Shared by the local Node server and
-// the Vercel function so both run the same configuration rules.
+// the Netlify function so both run the same configuration rules.
 
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
