@@ -19,7 +19,7 @@ export function completeAnswers(mut?: (a: Answers) => void): Answers {
   a.space = { areaKnown: true, area: 220, areaRange: null, peopleKnown: true, people: 18 };
   a.facilities = { selected: ['work', 'kitchen', 'toilets', 'reception'], kitchens: 1, toilets: 2 };
   a.priorities = { mode: 'choose', selected: ['cleaning', 'hygiene'], recommendationReviewed: false };
-  a.details.cleaning = { frequency: 3, customVisitsPerMonth: null, timing: 'during' };
+  a.details.cleaning = { frequency: 3, customVisitsPerMonth: null, timing: 'during', materials: 'provider' };
   a.details.hygiene = { mode: 'recurring' };
   a.current = { arrangement: 'several_providers', whoGetsCalled: null };
   mut?.(a);

@@ -14,7 +14,7 @@
 // Weekly services are converted to months with config.weeksPerMonth (52/12).
 
 import type { PricingConfig, Range, AreaTier } from './config';
-import type { CleaningFrequency, DddIssue, PlanConfig, ServiceId, WorkspaceProfile } from '../types';
+import type { CleaningFrequency, CleaningMaterials, CleaningTiming, DddIssue, PlanConfig, ServiceId, WorkspaceProfile } from '../types';
 
 export type Billing = 'monthly' | 'quarterly' | 'one_time' | 'per_intervention' | 'per_order' | 'assessment' | 'discount';
 
@@ -61,6 +61,9 @@ export type AssumptionId =
   | 'cleaning_tiers'
   | 'cleaning_minimum'
   | 'cleaning_outside_hours'
+  | 'cleaning_mixed_hours'
+  | 'cleaning_materials_client'
+  | 'cleaning_materials_included'
   | 'location_adjustment'
   | 'hygiene_consumption'
   | 'air_freshener_in_scenting'
@@ -76,7 +79,7 @@ export interface Assumption {
   facts: Record<string, number | string>;
 }
 
-export type ExclusionId = 'maintenance_parts' | 'maintenance_extra_hours' | 'drains_camera' | 'ddd_existing' | 'drains_existing' | 'hygiene_cleaning_chemicals' | 'on_demand_not_included';
+export type ExclusionId = 'cleaning_materials_client' | 'maintenance_parts' | 'maintenance_extra_hours' | 'drains_camera' | 'ddd_existing' | 'drains_existing' | 'hygiene_cleaning_chemicals' | 'on_demand_not_included';
 
 export interface Estimate {
   pricingId: string;
@@ -130,6 +133,19 @@ function frequencyMultiplier(visitsMonth: number, cfg: PricingConfig): number {
   return m[bucket];
 }
 
+/** Price factor for when cleaning happens; a mix applies the surcharge to the configured share of visits. */
+export function timingFactor(timing: CleaningTiming | undefined, cfg: PricingConfig): number {
+  const s = cfg.cleaning.outsideHoursSurcharge;
+  if (timing === 'outside') return 1 + s;
+  if (timing === 'mixed') return 1 + s * (cfg.cleaning.mixedOutsideShare ?? 0.5);
+  return 1;
+}
+
+/** Price factor for who supplies cleaning materials: the client supplying them removes the materials share. */
+export function materialsFactor(materials: CleaningMaterials | undefined, cfg: PricingConfig): number {
+  return materials === 'client' ? 1 - (cfg.cleaning.materialsShare ?? 0.1) : 1;
+}
+
 function labourAdjustment(ws: WorkspaceProfile, cfg: PricingConfig): number {
   return cfg.locationLabourAdjustment[ws.city] ?? 0;
 }
@@ -149,7 +165,7 @@ export function estimate(ws: WorkspaceProfile, plan: PlanConfig, cfg: PricingCon
   // ── Cleaning ────────────────────────────────────────────────────────────
   const deepCleanCost = (): Money => {
     const dc = cfg.cleaning.deepClean;
-    const surcharge = plan.cleaning?.timing === 'outside' ? 1 + cfg.cleaning.outsideHoursSurcharge : 1;
+    const surcharge = timingFactor(plan.cleaning?.timing, cfg) * materialsFactor(plan.cleaning?.materials, cfg);
     const at = (end: typeof LOW | typeof HIGH, area: number) =>
       Math.max(dc.minimum, (tieredCost(area, dc.tiers, end) + ws.kitchens * dc.kitchen[end] + ws.toilets * dc.toilet[end]) * surcharge * (1 + locAdj));
     return { min: at(LOW, ws.area.min), max: at(HIGH, ws.area.max) };
@@ -158,13 +174,19 @@ export function estimate(ws: WorkspaceProfile, plan: PlanConfig, cfg: PricingCon
   if (plan.cleaning) {
     const c = plan.cleaning;
     if (c.timing === 'outside') assume('cleaning_outside_hours', { pct: Math.round(cfg.cleaning.outsideHoursSurcharge * 100) });
+    if (c.materials === 'client') {
+      assume('cleaning_materials_client', { pct: Math.round((cfg.cleaning.materialsShare ?? 0.1) * 100) });
+      exclusions.add('cleaning_materials_client');
+    } else assume('cleaning_materials_included');
+    if (c.timing === 'mixed')
+      assume('cleaning_mixed_hours', { pct: Math.round(cfg.cleaning.outsideHoursSurcharge * 100), share: Math.round((cfg.cleaning.mixedOutsideShare ?? 0.5) * 100) });
 
     if (c.frequency === 'one_time') {
       lines.push({ id: 'deep_clean_once', service: 'cleaning', billing: 'one_time', amount: deepCleanCost(), monthly: null, facts: { areaMin: ws.area.min, areaMax: ws.area.max } });
     } else {
       const visits = visitsPerMonth(c.frequency, c.customVisitsPerMonth, cfg);
       const mult = frequencyMultiplier(visits, cfg);
-      const surcharge = c.timing === 'outside' ? 1 + cfg.cleaning.outsideHoursSurcharge : 1;
+      const surcharge = timingFactor(c.timing, cfg) * materialsFactor(c.materials, cfg);
       const perVisit = (end: typeof LOW | typeof HIGH, area: number) => {
         const areaPart = tieredCost(area, cfg.cleaning.tiers, end);
         const extras = ws.kitchens * cfg.cleaning.kitchenPerVisit[end] + ws.toilets * cfg.cleaning.toiletPerVisit[end];
@@ -209,7 +231,7 @@ export function estimate(ws: WorkspaceProfile, plan: PlanConfig, cfg: PricingCon
       return true;
     });
     if (scentedToilets && ws.toilets > 0) assume('air_freshener_in_scenting');
-    exclusions.add('hygiene_cleaning_chemicals');
+    if (plan.cleaning?.materials !== 'client') exclusions.add('hygiene_cleaning_chemicals');
 
     const noOccupancy = ws.people.max === 0;
     if (items.length === 0 || noOccupancy) {

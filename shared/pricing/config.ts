@@ -57,6 +57,10 @@ export interface PricingConfig {
     /** Per-visit multiplier by weekly frequency; "lt1" applies below one visit a week. */
     frequencyMultiplier: { lt1: number; 1: number; 2: number; 3: number; 4: number; 5: number };
     outsideHoursSurcharge: number;
+    /** Share of visits outside office hours when the visitor chooses both (0.5 = half). Defaults to 0.5. */
+    mixedOutsideShare?: number;
+    /** Share of the cleaning price that is materials; deducted when the client supplies them. Defaults to 0.1. */
+    materialsShare?: number;
     deepClean: { tiers: AreaTier[]; kitchen: Range; toilet: Range; minimum: number };
   };
 

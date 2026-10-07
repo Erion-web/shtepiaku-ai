@@ -47,6 +47,8 @@ export const DEMO_PRICING: PricingConfig = {
     minimumVisit: 20,
     frequencyMultiplier: { lt1: 1.15, 1: 1.1, 2: 1.05, 3: 1, 4: 0.97, 5: 0.95 },
     outsideHoursSurcharge: 0.15,
+    mixedOutsideShare: 0.5,
+    materialsShare: 0.1,
     deepClean: {
       tiers: [
         { upTo: 100, ratePerM2: [1.2, 1.6] },

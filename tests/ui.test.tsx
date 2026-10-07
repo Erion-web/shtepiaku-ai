@@ -125,6 +125,100 @@ describe('questionnaire navigation', () => {
   });
 });
 
+describe('cleaning shifts in the questionnaire', () => {
+  it('lets the visitor pick both shifts and shows the combination on the plan', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem(
+      'sh_visit_v1',
+      JSON.stringify({
+        answers: completeAnswers((a) => (a.details.cleaning.timing = null)),
+        answersRev: 1,
+        furthestStep: 5,
+        results: { tier: 'recommended', plan: null, basedOnRev: -1, customized: false },
+        requestType: 'offer',
+        visitId: 'seed',
+      }),
+    );
+    history.replaceState(null, '', '/plan/5');
+    render(<App config={config()} booth={false} />);
+    const during = screen.getByRole('checkbox', { name: /Gjatë orarit të punës/ });
+    const outside = screen.getByRole('checkbox', { name: /Jashtë orarit/ });
+    await user.click(during);
+    await user.click(outside);
+    expect(during).toHaveProperty('checked', true);
+    expect(outside).toHaveProperty('checked', true);
+    expect(screen.getByText(/Kombinim i të dy ndërrimeve/)).toBeTruthy();
+    expect(JSON.parse(sessionStorage.getItem('sh_visit_v1')!).answers.details.cleaning.timing).toBe('mixed');
+
+    await user.click(screen.getByRole('button', { name: 'Vazhdo' }));
+    await user.click(screen.getByRole('button', { name: 'Shiko planin dhe çmimin' }));
+    expect(screen.getByText('3 herë në javë · gjatë dhe jashtë orarit · me materiale të Shtepiaku')).toBeTruthy();
+  });
+});
+
+describe('cleaning materials', () => {
+  it('asks who supplies materials and prices the client option lower', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem(
+      'sh_visit_v1',
+      JSON.stringify({
+        answers: completeAnswers((a) => (a.details.cleaning.materials = null)),
+        answersRev: 1,
+        furthestStep: 5,
+        results: { tier: 'recommended', plan: null, basedOnRev: -1, customized: false },
+        requestType: 'offer',
+        visitId: 'seed',
+      }),
+    );
+    history.replaceState(null, '', '/plan/5');
+    render(<App config={config()} booth={false} />);
+    expect(screen.getByText('Kush i siguron materialet e pastrimit?')).toBeTruthy();
+    // Required: continuing without an answer shows an error.
+    await user.click(screen.getByRole('button', { name: 'Vazhdo' }));
+    expect(location.pathname).toBe('/plan/5');
+    await user.click(screen.getByRole('radio', { name: /Ne vetë/ }));
+    await user.click(screen.getByRole('button', { name: 'Vazhdo' }));
+    await user.click(screen.getByRole('button', { name: 'Shiko planin dhe çmimin' }));
+    expect(screen.getByText('3 herë në javë · gjatë orarit · materialet nga klienti')).toBeTruthy();
+    expect(screen.getByText('Materialet dhe mjetet e pastrimit, të cilat i siguroni ju.')).toBeTruthy();
+  });
+});
+
+describe('easy mode', () => {
+  it('turns a budget into a plan and pre-fills the questionnaire', async () => {
+    const user = userEvent.setup();
+    render(<App config={config()} booth={false} />);
+    await user.click(screen.getByRole('button', { name: /Mënyra e shpejtë/ }));
+    expect(location.pathname).toBe('/buxheti');
+    // Defaults: €200, cleaning + supplies, medium office.
+    expect(screen.getByText('Me €200 në muaj')).toBeTruthy();
+    await user.click(screen.getByRole('checkbox', { name: /ECO PEST DDD/ }));
+    expect(screen.getAllByText('Brenda buxhetit').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('button', { name: '€800' }));
+    expect(screen.getByText('Me €800 në muaj')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Vazhdo me këtë plan' }));
+    expect(location.pathname).toBe('/plan/1');
+    const saved = JSON.parse(sessionStorage.getItem('sh_visit_v1')!).answers;
+    expect(saved.budget).toBe(800);
+    expect(saved.space).toMatchObject({ area: 200, people: 18 });
+    expect(saved.priorities.selected).toEqual(['cleaning', 'hygiene', 'ddd']);
+    expect(saved.details.cleaning.materials).toBe('provider');
+  });
+
+  it('says so when the budget is too low', async () => {
+    const user = userEvent.setup();
+    history.replaceState(null, '', '/buxheti');
+    render(<App config={config()} booth={false} />);
+    const input = screen.getByLabelText('Buxheti mujor');
+    await user.clear(input);
+    await user.type(input, '10');
+    expect(screen.getByText('Ky buxhet nuk mjafton ende për shërbimet e zgjedhura.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Vazhdo me këtë plan' })).toHaveProperty('disabled', true);
+  });
+});
+
 describe('results', () => {
   it('shows the estimate with the demo label and recalculates when a service is added or removed', async () => {
     const user = userEvent.setup();

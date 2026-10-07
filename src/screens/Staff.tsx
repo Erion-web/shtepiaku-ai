@@ -436,6 +436,20 @@ function LeadDrawer({ lead, onClose, onSave, fmtDate }: { lead: StaffLead; onClo
               {lead.planCustomized && ` (${t.staff.detail.customized})`}
             </dd>
           </div>
+          {typeof a.budget === 'number' && (
+            <div>
+              <dt>{t.staff.detail.budget}</dt>
+              <dd>
+                {moneyRange({ min: a.budget, max: a.budget })} {t.results.perMonth}
+              </dd>
+            </div>
+          )}
+          {a.priorities.selected.includes('cleaning') && a.details.cleaning.materials && (
+            <div>
+              <dt>{t.staff.detail.materials}</dt>
+              <dd>{a.details.cleaning.materials === 'client' ? t.details.cleaning.materialsClient : t.details.cleaning.materialsProvider}</dd>
+            </div>
+          )}
           <div>
             <dt>{t.summary.services}</dt>
             <dd>{lead.services.map((s) => SERVICES[s as ServiceId]?.name[lang] ?? s).join(', ')}</dd>

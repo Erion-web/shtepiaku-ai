@@ -5,6 +5,7 @@ import { deterministicExplanation } from '../shared/explain';
 import { buildProfile } from '../shared/profile';
 import { DEMO_PRICING } from '../shared/pricing/demo';
 import { firstIncompleteStep, validateStep } from '../src/state/answers';
+import { toggleShift } from '../src/screens/Questionnaire';
 import { office, completeAnswers } from './fixtures';
 
 describe('recommendations', () => {
@@ -85,6 +86,15 @@ describe('questionnaire validation', () => {
   it('accepts zero people as a known answer', () => {
     const a = completeAnswers((x) => (x.space.people = 0));
     expect(validateStep(2, a)).toEqual({});
+  });
+});
+
+describe('cleaning shifts', () => {
+  it('treats both shifts checked as a combination, not a single choice', () => {
+    expect(toggleShift(null, 'during')).toBe('during');
+    expect(toggleShift('during', 'outside')).toBe('mixed');
+    expect(toggleShift('mixed', 'during')).toBe('outside');
+    expect(toggleShift('outside', 'outside')).toBeNull();
   });
 });
 

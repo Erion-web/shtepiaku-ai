@@ -15,6 +15,7 @@ export function planFromAnswers(answers: Answers, ws: WorkspaceProfile): PlanCon
           frequency: d.cleaning.frequency ?? defaultServiceConfig('cleaning', ws).frequency,
           customVisitsPerMonth: d.cleaning.customVisitsPerMonth ?? undefined,
           timing: d.cleaning.timing ?? 'during',
+          materials: d.cleaning.materials ?? 'provider',
         };
         if (plan.cleaning.frequency === 'custom' && !plan.cleaning.customVisitsPerMonth) plan.cleaning.frequency = defaultServiceConfig('cleaning', ws).frequency;
         break;

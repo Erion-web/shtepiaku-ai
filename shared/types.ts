@@ -14,7 +14,10 @@ export type WhoCalled = 'manager' | 'director' | 'anyone' | 'undecided';
 
 /** Weekly visit counts, a custom monthly visit count, or a single deep clean. */
 export type CleaningFrequency = 1 | 2 | 3 | 4 | 5 | 'custom' | 'one_time';
-export type CleaningTiming = 'during' | 'outside';
+/** 'mixed' = some visits during office hours and some outside (both options chosen). */
+export type CleaningTiming = 'during' | 'outside' | 'mixed';
+/** Who supplies cleaning materials (detergents, tools) — not the toilet/kitchen consumables. */
+export type CleaningMaterials = 'provider' | 'client';
 export type HygieneMode = 'recurring' | 'occasional';
 export type MaintenanceMode = 'preventive' | 'on_demand';
 export type DrainsMode = 'existing' | 'on_demand';
@@ -46,7 +49,7 @@ export interface Answers {
     recommendationReviewed: boolean;
   };
   details: {
-    cleaning: { frequency: CleaningFrequency | null; customVisitsPerMonth: number | null; timing: CleaningTiming | null };
+    cleaning: { frequency: CleaningFrequency | null; customVisitsPerMonth: number | null; timing: CleaningTiming | null; materials: CleaningMaterials | null };
     hygiene: { mode: HygieneMode | null };
     scenting: { zones: ScentZone[]; coverageKnown: boolean; coverageM2: number | null };
     maintenance: { mode: MaintenanceMode | null };
@@ -57,6 +60,8 @@ export interface Answers {
     arrangement: Arrangement | null;
     whoGetsCalled: WhoCalled | null;
   };
+  /** Monthly budget given in easy mode (€, excl. VAT), shown to staff. */
+  budget?: number | null;
 }
 
 /** Normalised view of the workspace used by the rules and the pricing engine. */
@@ -73,7 +78,8 @@ export interface WorkspaceProfile {
 
 /** The priced scope. A missing key means the service is not part of the plan. */
 export interface PlanConfig {
-  cleaning?: { frequency: CleaningFrequency; customVisitsPerMonth?: number; timing: CleaningTiming };
+  /** materials defaults to 'provider' (Shtepiaku supplies them, included in the price). */
+  cleaning?: { frequency: CleaningFrequency; customVisitsPerMonth?: number; timing: CleaningTiming; materials?: CleaningMaterials };
   initialDeepClean?: boolean;
   hygiene?: { mode: HygieneMode };
   scenting?: { zones: ScentZone[]; coverageM2: number | null };

@@ -15,6 +15,7 @@ import type {
   AreaRangeId,
   Arrangement,
   CleaningFrequency,
+  CleaningTiming,
   DddIssue,
   FacilityId,
   ScentZone,
@@ -31,6 +32,14 @@ const ARRANGEMENTS: Arrangement[] = ['internal', 'one_provider', 'several_provid
 const WHO: WhoCalled[] = ['manager', 'director', 'anyone', 'undecided'];
 const ZONES: ScentZone[] = ['reception', 'toilets', 'meeting', 'work', 'kitchen'];
 const ISSUES: DddIssue[] = ['crawling', 'flying', 'rodents', 'disinfection'];
+
+/** Turns the two shift checkboxes into one timing value: both checked = 'mixed'. */
+export function toggleShift(current: CleaningTiming | null, shift: 'during' | 'outside'): CleaningTiming | null {
+  const on = new Set<'during' | 'outside'>(current === 'mixed' ? ['during', 'outside'] : current ? [current] : []);
+  if (on.has(shift)) on.delete(shift);
+  else on.add(shift);
+  return on.size === 2 ? 'mixed' : on.size === 1 ? [...on][0] : null;
+}
 
 const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 const parsePositive = (s: string): number | null => {
@@ -611,14 +620,39 @@ function StepDetails({ err }: { err: ErrFn }) {
                 />
               </Field>
             )}
-            <ChoiceGroup legend={t.details.cleaning.timing} error={err('timing')} layout="cards-2">
-              <OptionCard name={`${id}-timing`} checked={d.cleaning.timing === 'during'} onChange={() => set((x) => void (x.cleaning.timing = 'during'))} title={t.details.cleaning.during} />
+            {/* Not mutually exclusive: choosing both means a combination of the two shifts. */}
+            <ChoiceGroup legend={t.details.cleaning.timing} hint={t.details.cleaning.timingHint} error={err('timing')} layout="cards-2">
+              {(['during', 'outside'] as const).map((shift) => (
+                <OptionCard
+                  key={shift}
+                  type="checkbox"
+                  name={`${id}-timing`}
+                  checked={d.cleaning.timing === shift || d.cleaning.timing === 'mixed'}
+                  onChange={() => set((x) => void (x.cleaning.timing = toggleShift(x.cleaning.timing, shift)))}
+                  title={shift === 'during' ? t.details.cleaning.during : t.details.cleaning.outside}
+                  hint={shift === 'outside' ? t.details.cleaning.outsideHint : undefined}
+                />
+              ))}
+            </ChoiceGroup>
+            {d.cleaning.timing === 'mixed' && (
+              <p className="note reveal" role="status">
+                {t.details.cleaning.mixedNote}
+              </p>
+            )}
+            <ChoiceGroup legend={t.details.cleaning.materials} hint={t.details.cleaning.materialsHint} error={err('materials')} layout="cards-2">
               <OptionCard
-                name={`${id}-timing`}
-                checked={d.cleaning.timing === 'outside'}
-                onChange={() => set((x) => void (x.cleaning.timing = 'outside'))}
-                title={t.details.cleaning.outside}
-                hint={t.details.cleaning.outsideHint}
+                name={`${id}-materials`}
+                checked={d.cleaning.materials === 'provider'}
+                onChange={() => set((x) => void (x.cleaning.materials = 'provider'))}
+                title={t.details.cleaning.materialsProvider}
+                hint={t.details.cleaning.materialsProviderHint}
+              />
+              <OptionCard
+                name={`${id}-materials`}
+                checked={d.cleaning.materials === 'client'}
+                onChange={() => set((x) => void (x.cleaning.materials = 'client'))}
+                title={t.details.cleaning.materialsClient}
+                hint={t.details.cleaning.materialsClientHint}
               />
             </ChoiceGroup>
           </DetailSection>

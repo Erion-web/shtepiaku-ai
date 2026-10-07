@@ -39,7 +39,8 @@ export const answersSchema = z.object({
     cleaning: z.object({
       frequency: cleaningFrequency.nullable(),
       customVisitsPerMonth: z.number().int().min(1).max(31).nullable(),
-      timing: z.enum(['during', 'outside']).nullable(),
+      timing: z.enum(['during', 'outside', 'mixed']).nullable(),
+      materials: z.enum(['provider', 'client']).nullable().default(null),
     }),
     hygiene: z.object({ mode: z.enum(['recurring', 'occasional']).nullable() }),
     scenting: z.object({ zones: z.array(scentZone).max(5), coverageKnown: z.boolean(), coverageM2: z.number().positive().max(100_000).nullable() }),
@@ -51,11 +52,12 @@ export const answersSchema = z.object({
     arrangement: z.enum(['internal', 'one_provider', 'several_providers', 'as_needed', 'none']).nullable(),
     whoGetsCalled: z.enum(['manager', 'director', 'anyone', 'undecided']).nullable(),
   }),
+  budget: z.number().min(0).max(1_000_000).nullable().optional(),
 });
 
 export const planSchema = z.object({
   cleaning: z
-    .object({ frequency: cleaningFrequency, customVisitsPerMonth: z.number().int().min(1).max(31).optional(), timing: z.enum(['during', 'outside']) })
+    .object({ frequency: cleaningFrequency, customVisitsPerMonth: z.number().int().min(1).max(31).optional(), timing: z.enum(['during', 'outside', 'mixed']), materials: z.enum(['provider', 'client']).optional() })
     .optional(),
   initialDeepClean: z.boolean().optional(),
   hygiene: z.object({ mode: z.enum(['recurring', 'occasional']) }).optional(),

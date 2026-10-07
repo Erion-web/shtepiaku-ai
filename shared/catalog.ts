@@ -20,8 +20,8 @@ export const SERVICES: Record<ServiceId, ServiceInfo> = {
       en: 'Regular office cleaning or a one-time deep clean.',
     },
     approved: {
-      sq: 'Pastrim i rregullt i hapësirave të punës, sallave, kuzhinës dhe tualeteve me frekuencën e zgjedhur, ose pastrim i thellë një herë. Mjetet dhe kimikatet e pastrimit përfshihen në shërbim.',
-      en: 'Regular cleaning of work areas, meeting rooms, kitchen and toilets at the chosen frequency, or a one-time deep clean. Cleaning tools and chemicals are included in the service.',
+      sq: 'Pastrim i rregullt i hapësirave të punës, sallave, kuzhinës dhe tualeteve me frekuencën e zgjedhur, ose pastrim i thellë një herë. Mjetet dhe kimikatet e pastrimit i siguron Shtepiaku dhe përfshihen në çmim, ose klienti mund t’i sigurojë vetë.',
+      en: 'Regular cleaning of work areas, meeting rooms, kitchen and toilets at the chosen frequency, or a one-time deep clean. Cleaning tools and chemicals are supplied by Shtepiaku and included in the price, or the client can supply their own.',
     },
   },
   maintenance: {

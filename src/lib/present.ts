@@ -12,9 +12,10 @@ export function scopeText(service: ServiceId, plan: PlanConfig, est: Estimate | 
   switch (service) {
     case 'cleaning': {
       const c = plan.cleaning!;
-      if (c.frequency === 'one_time') return t.scope.cleaningOnce;
+      const by = c.materials === 'client' ? ` · ${t.scope.materialsClient}` : ` · ${t.scope.materialsProvider}`;
+      if (c.frequency === 'one_time') return t.scope.cleaningOnce + by;
       const f = c.frequency === 'custom' ? t.scope.cleaningCustom(c.customVisitsPerMonth ?? 0) : t.details.cleaning.perWeek(c.frequency);
-      return t.scope.cleaning(f, c.timing === 'outside' ? t.scope.outsideShort : t.scope.duringShort);
+      return t.scope.cleaning(f, c.timing === 'outside' ? t.scope.outsideShort : c.timing === 'mixed' ? t.scope.mixedShort : t.scope.duringShort) + by;
     }
     case 'hygiene':
       return plan.hygiene!.mode === 'recurring' ? t.scope.hygieneRecurring : t.scope.hygieneOccasional;
@@ -105,7 +106,7 @@ export function configForAdd(service: ServiceId, answers: Answers, ws: Workspace
   switch (service) {
     case 'cleaning':
       return d.cleaning.frequency && d.cleaning.frequency !== 'custom'
-        ? { frequency: d.cleaning.frequency, timing: d.cleaning.timing ?? 'during' }
+        ? { frequency: d.cleaning.frequency, timing: d.cleaning.timing ?? 'during', materials: d.cleaning.materials ?? 'provider' }
         : defaultServiceConfig('cleaning', ws);
     case 'hygiene':
       return d.hygiene.mode ? { mode: d.hygiene.mode } : defaultServiceConfig('hygiene', ws);

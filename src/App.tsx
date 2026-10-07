@@ -12,6 +12,7 @@ import { Results } from './screens/Results';
 import { Contact } from './screens/Contact';
 import { Success } from './screens/Success';
 import { Staff } from './screens/Staff';
+import { Budget } from './screens/Budget';
 import type { AppConfig } from './lib/api';
 
 export function App({ config, booth }: { config?: AppConfig; booth?: boolean } = {}) {
@@ -51,6 +52,7 @@ function Routes(): ReactNode {
   }, [path, navigate]);
 
   if (path === '/') return <Welcome />;
+  if (path === '/buxheti') return <Budget />;
   if (step) return <Questionnaire key={step[1]} step={Number(step[1])} />;
   if (path === '/rezultati') return <Results />;
   if (path === '/kerkese') return <Contact />;

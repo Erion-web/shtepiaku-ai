@@ -9,7 +9,7 @@ export function emptyAnswers(): Answers {
     facilities: { selected: [], kitchens: 1, toilets: 1 },
     priorities: { mode: 'choose', selected: [], recommendationReviewed: false },
     details: {
-      cleaning: { frequency: null, customVisitsPerMonth: null, timing: null },
+      cleaning: { frequency: null, customVisitsPerMonth: null, timing: null, materials: null },
       hygiene: { mode: null },
       scenting: { zones: [], coverageKnown: false, coverageM2: null },
       maintenance: { mode: null },
@@ -17,6 +17,7 @@ export function emptyAnswers(): Answers {
       ddd: { mode: null, issues: [] },
     },
     current: { arrangement: null, whoGetsCalled: null },
+    budget: null,
   };
 }
 
@@ -51,6 +52,7 @@ export function validateStep(step: number, a: Answers): StepErrors {
         if (d.cleaning.frequency === 'custom' && !(d.cleaning.customVisitsPerMonth && d.cleaning.customVisitsPerMonth >= 1 && d.cleaning.customVisitsPerMonth <= 31))
           e.custom = 'details.errors.custom';
         if (!d.cleaning.timing) e.timing = 'details.errors.timing';
+        if (!d.cleaning.materials) e.materials = 'details.errors.mode';
       }
       if (has('hygiene') && !d.hygiene.mode) e.hygiene = 'details.errors.mode';
       if (has('scenting')) {

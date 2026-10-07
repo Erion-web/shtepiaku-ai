@@ -49,7 +49,7 @@ type ServiceConfigs = Required<Omit<PlanConfig, 'initialDeepClean'>>;
 /** Sensible starting configuration when a service is added without detailed answers. */
 export function defaultServiceConfig<S extends ServiceId>(service: S, ws: WorkspaceProfile): ServiceConfigs[S] {
   const defaults: ServiceConfigs = {
-    cleaning: { frequency: defaultWeeklyFrequency(ws), timing: 'during' },
+    cleaning: { frequency: defaultWeeklyFrequency(ws), timing: 'during', materials: 'provider' },
     hygiene: { mode: 'recurring' },
     scenting: { zones: defaultScentZones(ws), coverageM2: null },
     maintenance: { mode: 'preventive' },

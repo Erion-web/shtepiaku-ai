@@ -80,6 +80,8 @@ export const storedPricingSchema = z.object({
     minimumVisit: money,
     frequencyMultiplier: z.object({ lt1: factor, 1: factor, 2: factor, 3: factor, 4: factor, 5: factor }),
     outsideHoursSurcharge: share(1),
+    mixedOutsideShare: share(1).optional(),
+    materialsShare: share(0.9).optional(),
     deepClean: z.object({ tiers, kitchen: range(), toilet: range(), minimum: money }),
   }),
   hygiene: z.object({

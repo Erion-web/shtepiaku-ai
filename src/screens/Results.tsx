@@ -429,6 +429,10 @@ function HowCalculated({ est }: { est: Estimate }) {
         return A.people_estimated(f.min as number, f.max as number);
       case 'cleaning_minimum':
         return A.cleaning_minimum(money(f.minimum as number));
+      case 'cleaning_materials_client':
+        return A.cleaning_materials_client(f.pct as number);
+      case 'cleaning_mixed_hours':
+        return A.cleaning_mixed_hours(f.pct as number, f.share as number);
       case 'cleaning_outside_hours':
         return A.cleaning_outside_hours(f.pct as number);
       case 'location_adjustment':

@@ -174,6 +174,58 @@ describe('additions, removals and double counting', () => {
   });
 });
 
+describe('combined shifts', () => {
+  const at = (timing: 'during' | 'outside' | 'mixed', c = cfg) => estimate(office(), { cleaning: { frequency: 3, timing } }, c).lines.find((l) => l.id === 'cleaning')!.amount!;
+
+  it('prices a combination between daytime-only and outside-hours-only', () => {
+    const during = at('during');
+    const outside = at('outside');
+    const mixed = at('mixed');
+    expect(mixed.min).toBeCloseTo(during.min * (1 + 0.15 * 0.5), 6);
+    expect(mixed.min).toBeGreaterThan(during.min);
+    expect(mixed.max).toBeLessThan(outside.max);
+  });
+
+  it('follows the configured share and defaults to half for older saved prices', () => {
+    const allOutside = { ...cfg, cleaning: { ...cfg.cleaning, mixedOutsideShare: 1 } };
+    expect(at('mixed', allOutside).min).toBeCloseTo(at('outside').min, 6);
+    const older = { ...cfg, cleaning: { ...cfg.cleaning, mixedOutsideShare: undefined } };
+    expect(at('mixed', older).min).toBeCloseTo(at('mixed').min, 6);
+  });
+
+  it('records the combination as an assumption', () => {
+    const e = estimate(office(), { cleaning: { frequency: 3, timing: 'mixed' } }, cfg);
+    expect(e.assumptions.find((a) => a.id === 'cleaning_mixed_hours')!.facts).toEqual({ pct: 15, share: 50 });
+  });
+});
+
+describe('cleaning materials', () => {
+  const plan = (materials?: 'provider' | 'client') => ({ cleaning: { frequency: 3 as const, timing: 'during' as const, materials }, hygiene: { mode: 'recurring' as const } });
+
+  it('lowers regular and deep cleaning by the materials share when the client supplies them', () => {
+    const ours = estimate(office(), plan('provider'), cfg).lines.find((l) => l.id === 'cleaning')!.amount!;
+    const theirs = estimate(office(), plan('client'), cfg).lines.find((l) => l.id === 'cleaning')!.amount!;
+    expect(theirs.min).toBeCloseTo(ours.min * 0.9, 6);
+    expect(theirs.max).toBeCloseTo(ours.max * 0.9, 6);
+    const deep = (m: 'provider' | 'client') => estimate(office(), { cleaning: { frequency: 'one_time', timing: 'during', materials: m } }, cfg).oneTime!;
+    expect(deep('client').max).toBeLessThan(deep('provider').max);
+  });
+
+  it('treats older plans without the answer as Shtepiaku-supplied', () => {
+    expect(estimate(office(), plan(undefined), cfg).monthlyRaw).toEqual(estimate(office(), plan('provider'), cfg).monthlyRaw);
+  });
+
+  it('states who supplies materials in assumptions and exclusions', () => {
+    const client = estimate(office(), plan('client'), cfg);
+    expect(client.assumptions.find((a) => a.id === 'cleaning_materials_client')!.facts).toEqual({ pct: 10 });
+    expect(client.exclusions).toContain('cleaning_materials_client');
+    expect(client.exclusions).not.toContain('hygiene_cleaning_chemicals');
+    const ours = estimate(office(), plan('provider'), cfg);
+    expect(ours.assumptions.some((a) => a.id === 'cleaning_materials_included')).toBe(true);
+    expect(ours.exclusions).toContain('hygiene_cleaning_chemicals');
+  });
+});
+
 describe('pricing gate', () => {
   it('shows demo prices in demo mode and only approved prices in live mode', () => {
     expect(resolvePricing('demo', DEMO_PRICING)!.status).toBe('demo');

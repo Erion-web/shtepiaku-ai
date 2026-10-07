@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Clock } from 'lucide-react';
+import { ArrowRight, Check, Clock, Wallet } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { useRouter } from '../lib/router';
 import { useStore } from '../state/store';
@@ -24,6 +24,9 @@ export function Welcome() {
         <div className="welcome__cta">
           <Button size="lg" iconRight={<ArrowRight size={20} aria-hidden />} onClick={() => navigate(hasProgress ? (next > TOTAL_STEPS ? '/rezultati' : `/plan/${next}`) : '/plan/1')}>
             {hasProgress ? t.welcome.resume : t.welcome.cta}
+          </Button>
+          <Button size="lg" variant="secondary" icon={<Wallet size={20} aria-hidden />} onClick={() => navigate('/buxheti')}>
+            {t.welcome.easyCta}
           </Button>
           <p className="welcome__micro">
             <Clock size={16} aria-hidden />

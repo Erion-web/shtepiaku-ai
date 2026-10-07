@@ -109,6 +109,20 @@ export function buildSections(cfg: StoredPricing): Section[] {
         f(['cleaning', 'toiletPerVisit'], 'range', B('Çdo tualet, për vizitë', 'Each toilet, per visit'), EUR),
         f(['cleaning', 'minimumVisit'], 'number', B('Çmimi minimal për vizitë', 'Minimum charge per visit'), EUR),
         f(['cleaning', 'outsideHoursSurcharge'], 'percent', B('Shtesë jashtë orarit', 'Outside-hours surcharge'), B('%', '%')),
+        f(
+          ['cleaning', 'materialsShare'],
+          'percent',
+          B('Pjesa e materialeve në çmimin e pastrimit', 'Materials share of the cleaning price'),
+          B('%', '%'),
+          B('Zbritet kur klienti i siguron vetë materialet.', 'Deducted when the client supplies their own materials.'),
+        ),
+        f(
+          ['cleaning', 'mixedOutsideShare'],
+          'percent',
+          B('Kombinim: pjesa e vizitave jashtë orarit', 'Combination: share of visits outside hours'),
+          B('% e vizitave', '% of visits'),
+          B('Kur klienti zgjedh të dy ndërrimet; shtesa vlen vetëm për këtë pjesë.', 'When the client picks both shifts; the surcharge applies to this share only.'),
+        ),
         f(['cleaning', 'frequencyMultiplier', 'lt1'], 'factor', B('Më rrallë se 1 herë në javë', 'Less than once a week'), B('% e çmimit', '% of price')),
         f(['cleaning', 'frequencyMultiplier', '1'], 'factor', B('1 herë në javë', 'Once a week'), B('% e çmimit', '% of price')),
         f(['cleaning', 'frequencyMultiplier', '2'], 'factor', B('2 herë në javë', '2 times a week'), B('% e çmimit', '% of price')),
@@ -211,5 +225,7 @@ export function setAt<T>(obj: T, path: Path, value: unknown): T {
 /** City adjustments are optional keys; 0 means "no adjustment" and is not stored. */
 export function normaliseCities(cfg: StoredPricing): StoredPricing {
   const adj = Object.fromEntries(Object.entries(cfg.locationLabourAdjustment).filter(([, v]) => typeof v === 'number' && v !== 0));
-  return { ...cfg, locationLabourAdjustment: adj };
+  // Versions saved before the shift combination existed get its default made visible.
+  const cleaning = { ...cfg.cleaning, mixedOutsideShare: cfg.cleaning.mixedOutsideShare ?? 0.5, materialsShare: cfg.cleaning.materialsShare ?? 0.1 };
+  return { ...cfg, locationLabourAdjustment: adj, cleaning };
 }
