@@ -5,6 +5,7 @@ import { useStore } from '../state/store';
 import { api, ApiError, type StaffLead } from '../lib/api';
 import { Alert, Button, Field, PageTitle, Segmented, Switch, TextInput, cx } from '../components/ui';
 import { SERVICE_ICONS } from '../components/icons';
+import { PricingEditor } from './staff/PricingEditor';
 import { SERVICES } from '../../shared/catalog';
 import { LEAD_STATUSES, type LeadStatus, type ServiceId } from '../../shared/types';
 
@@ -77,6 +78,7 @@ function Login({ onDone }: { onDone: () => void }) {
 }
 
 function Dashboard({ onLogout, onUnauthorized }: { onLogout: () => void; onUnauthorized: () => void }) {
+  const [tab, setTab] = useState<'leads' | 'pricing'>('leads');
   const { t, lang, moneyRange } = useI18n();
   const { booth, setBooth } = useStore();
   const [dataset, setDataset] = useState<'live' | 'demo'>('demo');
@@ -139,7 +141,19 @@ function Dashboard({ onLogout, onUnauthorized }: { onLogout: () => void; onUnaut
   return (
     <>
       <div className="staff__head">
-        <PageTitle className="results__title">{t.staff.title}</PageTitle>
+        <div className="staff__title">
+          <PageTitle className="results__title">{t.staff.title}</PageTitle>
+          <Segmented
+            label={t.staff.title}
+            hideLabel
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'leads', label: t.staff.tabs.leads },
+              { value: 'pricing', label: t.staff.tabs.pricing },
+            ]}
+          />
+        </div>
         <div className="staff__head-actions">
           <div className="booth-toggle">
             <div>
@@ -161,6 +175,8 @@ function Dashboard({ onLogout, onUnauthorized }: { onLogout: () => void; onUnaut
         </div>
       </div>
 
+      {tab === 'pricing' && <PricingEditor onUnauthorized={onUnauthorized} />}
+      {tab === 'leads' && (
       <div className="card staff__panel">
         <div className="staff__toolbar">
           <Segmented
@@ -269,6 +285,7 @@ function Dashboard({ onLogout, onUnauthorized }: { onLogout: () => void; onUnaut
         )}
       </div>
 
+      )}
       {open && <LeadDrawer lead={open} onClose={() => setOpenId(null)} onSave={(notes) => patch(open, { staffNotes: notes })} fmtDate={fmtDate} />}
     </>
   );

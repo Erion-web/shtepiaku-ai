@@ -2,6 +2,7 @@
 // Real and demo leads always live in separate tables.
 
 import type { LeadStatus, RequestType } from '../shared/types';
+import type { StoredPricing } from '../shared/pricing/stored';
 
 export type Dataset = 'live' | 'demo';
 export const TABLE: Record<Dataset, string> = { live: 'leads', demo: 'demo_leads' };
@@ -56,7 +57,38 @@ export interface LeadFilter {
   to?: string;
 }
 
+/** One saved set of prices. Versions are append-only; the newest one is active. */
+export interface PricingVersion {
+  version: number;
+  createdAt: string;
+  status: 'demo' | 'approved';
+  note: string;
+  author: string;
+  config: StoredPricing;
+}
+
+export interface NewPricingVersion {
+  status: 'demo' | 'approved';
+  note: string;
+  author: string;
+  config: StoredPricing;
+}
+
+export interface PricingStore {
+  latest(): Promise<PricingVersion | null>;
+  get(version: number): Promise<PricingVersion | null>;
+  /** Newest first, without the full config to keep listings small. */
+  list(limit?: number): Promise<Omit<PricingVersion, 'config'>[]>;
+  save(v: NewPricingVersion): Promise<PricingVersion>;
+}
+
+/** Stamps a stored version's identity onto its config so estimates record exactly which version priced them. */
+export function withVersionIdentity(v: Omit<PricingVersion, 'config'> & { config: StoredPricing }): PricingVersion {
+  return { ...v, config: { ...v.config, id: `v${v.version}`, status: v.status, label: `Versioni ${v.version}` } };
+}
+
 export interface LeadStore {
+  pricing: PricingStore;
   insert(lead: NewLead, now?: Date): Promise<{ id: string; duplicate: boolean }>;
   list(dataset: Dataset, filter?: LeadFilter): Promise<LeadRecord[]>;
   update(dataset: Dataset, id: string, patch: { status?: LeadStatus; staffNotes?: string }): Promise<LeadRecord | null>;

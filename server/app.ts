@@ -8,6 +8,8 @@ import { buildProfile } from '../shared/profile';
 import { estimate } from '../shared/pricing/engine';
 import { resolvePricing, type PricingMode } from '../shared/pricing/registry';
 import { DEMO_PRICING } from '../shared/pricing/demo';
+import { fromStored, toStored, validateStoredPricing } from '../shared/pricing/stored';
+import type { PricingConfig } from '../shared/pricing/config';
 import { servicesIn, planKey } from '../shared/plans';
 import { isEligible } from '../shared/rules';
 import type { Answers, PlanConfig } from '../shared/types';
@@ -42,8 +44,24 @@ function clientKey(c: Context): string {
 
 export function createApp(opts: AppOptions) {
   const app = new Hono();
-  const pricing = resolvePricing(opts.pricingMode);
-  const dataset: Dataset = opts.pricingMode === 'demo' ? 'demo' : 'live';
+  // Active pricing = newest saved version (DEMO_PRICING until staff save one).
+  // Cached briefly so serverless instances don't query on every request; a save
+  // on this instance refreshes it immediately, others within PRICING_CACHE_MS.
+  const PRICING_CACHE_MS = 10_000;
+  let cached: { at: number; active: PricingConfig; version: number | null } | null = null;
+  const activePricing = async () => {
+    if (cached && Date.now() - cached.at < PRICING_CACHE_MS) return cached;
+    const latest = await opts.store.pricing.latest();
+    cached = { at: Date.now(), active: latest ? fromStored(latest.config) : DEMO_PRICING, version: latest?.version ?? null };
+    return cached;
+  };
+  /** What the public may see, and where leads go: approved prices → real leads. */
+  const publicPricing = async () => {
+    const { active } = await activePricing();
+    const pricing = resolvePricing(opts.pricingMode, active);
+    const dataset: Dataset = pricing?.status === 'approved' || opts.pricingMode === 'live' ? 'live' : 'demo';
+    return { pricing, dataset };
+  };
   const minFillMs = opts.minFillMs ?? 2500;
   const leadLimiter = createRateLimiter(8, 10 * 60 * 1000);
   const explainLimiter = createRateLimiter(40, 10 * 60 * 1000);
@@ -55,17 +73,25 @@ export function createApp(opts: AppOptions) {
     c.header('X-Content-Type-Options', 'nosniff');
   });
 
-  app.get('/api/config', (c) =>
-    c.json({
+  app.get('/api/config', async (c) => {
+    let pricing: PricingConfig | null = null;
+    try {
+      pricing = (await publicPricing()).pricing;
+    } catch (err) {
+      console.error('[pricing] load failed', err);
+      return c.json({ error: 'storage_failed' }, 500);
+    }
+    return c.json({
       pricingMode: opts.pricingMode,
       pricingId: pricing?.id ?? null,
       pricingStatus: pricing?.status ?? null,
       estimatesEnabled: pricing !== null,
+      pricing: pricing ? toStored(pricing) : null,
       aiEnabled: opts.explainer !== null,
       staffConfigured: Boolean(opts.staffPassword),
       dev: opts.dev,
-    }),
-  );
+    });
+  });
 
   // ── AI explanation ─────────────────────────────────────────────────────
   app.post('/api/explain', async (c) => {
@@ -91,6 +117,14 @@ export function createApp(opts: AppOptions) {
     if (s.elapsedMs < minFillMs) return c.json({ error: 'rejected' }, 400);
 
     const answers = s.answers as Answers;
+    let pricing: PricingConfig | null;
+    let dataset: Dataset;
+    try {
+      ({ pricing, dataset } = await publicPricing());
+    } catch (err) {
+      console.error('[pricing] load failed', err);
+      return c.json({ error: 'storage_failed' }, 500);
+    }
     const ws = buildProfile(answers, pricing ?? DEMO_PRICING);
     if (!ws) return c.json({ error: 'invalid_request' }, 400);
     const plan = s.plan as PlanConfig;
@@ -206,6 +240,43 @@ export function createApp(opts: AppOptions) {
     const updated = await opts.store.update(ds, c.req.param('id'), { status: status?.data, staffNotes: body.staffNotes as string | undefined });
     if (!updated) return c.json({ error: 'not_found' }, 404);
     return c.json({ lead: updated });
+  });
+
+  // ── Staff: pricing editor ───────────────────────────────────────────────
+  app.use('/api/staff/pricing*', async (c, next) => {
+    if (!isStaff(c)) return c.json({ error: 'unauthorized' }, 401);
+    await next();
+  });
+
+  app.get('/api/staff/pricing', async (c) => {
+    const { active, version } = await activePricing();
+    const history = await opts.store.pricing.list(50);
+    return c.json({ active: toStored(active), version, history, pricingMode: opts.pricingMode });
+  });
+
+  app.get('/api/staff/pricing/:version', async (c) => {
+    const v = await opts.store.pricing.get(Number(c.req.param('version')));
+    return v ? c.json({ version: v }) : c.json({ error: 'not_found' }, 404);
+  });
+
+  app.post('/api/staff/pricing', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { config?: unknown; status?: unknown; note?: unknown; author?: unknown; restoreOf?: unknown } | null;
+    if (!body || (body.status !== 'demo' && body.status !== 'approved')) return c.json({ error: 'invalid_request' }, 400);
+    const note = typeof body.note === 'string' ? body.note.trim().slice(0, 500) : '';
+    const author = typeof body.author === 'string' ? body.author.trim().slice(0, 80) : '';
+
+    let config: unknown = body.config;
+    if (typeof body.restoreOf === 'number') {
+      const old = await opts.store.pricing.get(body.restoreOf);
+      if (!old) return c.json({ error: 'not_found' }, 404);
+      config = old.config;
+    }
+    const checked = validateStoredPricing(config);
+    if (!checked.ok) return c.json({ error: 'invalid_pricing', issues: checked.issues }, 400);
+
+    const saved = await opts.store.pricing.save({ status: body.status, note, author, config: checked.value });
+    cached = null;
+    return c.json({ version: saved.version, active: saved.config }, 201);
   });
 
   app.all('/api/*', (c) => c.json({ error: 'not_found' }, 404));

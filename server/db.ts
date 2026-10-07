@@ -5,7 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { DUPLICATE_WINDOW_MS, TABLE, fromRow, sanitizeSearch, toRow, type LeadRow, type LeadStore } from './store';
+import { DUPLICATE_WINDOW_MS, TABLE, fromRow, sanitizeSearch, toRow, withVersionIdentity, type LeadRow, type LeadStore, type PricingStore, type PricingVersion } from './store';
 
 export type { Dataset, LeadRecord, LeadStore, NewLead, LeadFilter } from './store';
 
@@ -56,8 +56,48 @@ export function openLeadStore(file: string): LeadStore {
     db.exec(`CREATE INDEX IF NOT EXISTS ${t}_created ON ${t}(created_at);`);
     db.exec(`CREATE INDEX IF NOT EXISTS ${t}_fp ON ${t}(fingerprint, created_at);`);
   }
+  db.exec(`CREATE TABLE IF NOT EXISTS pricing_versions (
+    version INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    author TEXT NOT NULL DEFAULT '',
+    config TEXT NOT NULL
+  );`);
+
+  const toVersion = (r: SqlRow): PricingVersion =>
+    withVersionIdentity({
+      version: r.version as number,
+      createdAt: r.created_at as string,
+      status: r.status as PricingVersion['status'],
+      note: r.note as string,
+      author: r.author as string,
+      config: JSON.parse(r.config as string),
+    });
+
+  const pricing: PricingStore = {
+    async latest() {
+      const r = db.prepare('SELECT * FROM pricing_versions ORDER BY version DESC LIMIT 1').get() as SqlRow | undefined;
+      return r ? toVersion(r) : null;
+    },
+    async get(version) {
+      const r = db.prepare('SELECT * FROM pricing_versions WHERE version = ?').get(version) as SqlRow | undefined;
+      return r ? toVersion(r) : null;
+    },
+    async list(limit = 50) {
+      const rows = db.prepare('SELECT version, created_at, status, note, author FROM pricing_versions ORDER BY version DESC LIMIT ?').all(limit) as SqlRow[];
+      return rows.map((r) => ({ version: r.version as number, createdAt: r.created_at as string, status: r.status as PricingVersion['status'], note: r.note as string, author: r.author as string }));
+    },
+    async save(v) {
+      const res = db
+        .prepare('INSERT INTO pricing_versions (created_at, status, note, author, config) VALUES (?, ?, ?, ?, ?)')
+        .run(new Date().toISOString(), v.status, v.note, v.author, JSON.stringify(v.config));
+      return (await pricing.get(Number(res.lastInsertRowid)))!;
+    },
+  };
 
   return {
+    pricing,
     async insert(lead, now = new Date()) {
       const t = TABLE[lead.dataset];
       // Idempotent retry: the same submission key always maps to the same lead.

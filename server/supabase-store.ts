@@ -5,7 +5,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import { DUPLICATE_WINDOW_MS, TABLE, fromRow, sanitizeSearch, toRow, type LeadRow, type LeadStore } from './store';
+import { DUPLICATE_WINDOW_MS, TABLE, fromRow, sanitizeSearch, toRow, withVersionIdentity, type LeadRow, type LeadStore, type PricingStore, type PricingVersion } from './store';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -26,7 +26,39 @@ export function openSupabaseStore(url: string, serviceRoleKey: string, client?: 
     return null;
   };
 
+  type VersionRow = { version: number; created_at: string; status: PricingVersion['status']; note: string; author: string; config: PricingVersion['config'] };
+  const toVersion = (r: VersionRow) =>
+    withVersionIdentity({ version: Number(r.version), createdAt: new Date(r.created_at).toISOString(), status: r.status, note: r.note, author: r.author, config: r.config });
+
+  const pricing: PricingStore = {
+    async latest() {
+      const { data, error } = await sb.from('pricing_versions').select('*').order('version', { ascending: false }).limit(1).maybeSingle();
+      if (error) throw error;
+      return data ? toVersion(data as VersionRow) : null;
+    },
+    async get(version) {
+      const { data, error } = await sb.from('pricing_versions').select('*').eq('version', version).maybeSingle();
+      if (error) throw error;
+      return data ? toVersion(data as VersionRow) : null;
+    },
+    async list(limit = 50) {
+      const { data, error } = await sb.from('pricing_versions').select('version, created_at, status, note, author').order('version', { ascending: false }).limit(limit);
+      if (error) throw error;
+      return (data as Omit<VersionRow, 'config'>[]).map((r) => ({ version: Number(r.version), createdAt: new Date(r.created_at).toISOString(), status: r.status, note: r.note, author: r.author }));
+    },
+    async save(v) {
+      const { data, error } = await sb
+        .from('pricing_versions')
+        .insert({ status: v.status, note: v.note, author: v.author, config: v.config })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return toVersion(data as VersionRow);
+    },
+  };
+
   return {
+    pricing,
     async insert(lead, now = new Date()) {
       const t = TABLE[lead.dataset];
       const existing = await findByKey(lead.idempotencyKey);

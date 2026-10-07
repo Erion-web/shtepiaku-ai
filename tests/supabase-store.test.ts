@@ -3,10 +3,12 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { openSupabaseStore } from '../server/supabase-store';
 import type { NewLead } from '../server/store';
+import { toStored } from '../shared/pricing/stored';
+import { DEMO_PRICING } from '../shared/pricing/demo';
 
 /** Minimal in-memory stand-in for the PostgREST query builder used by the store. */
 function fakeSupabase(opts: { failInsertOnce?: 'unique' } = {}) {
-  const tables: Record<string, Record<string, unknown>[]> = { leads: [], demo_leads: [] };
+  const tables: Record<string, Record<string, unknown>[]> = { leads: [], demo_leads: [], pricing_versions: [] };
   let failNext = opts.failInsertOnce;
   const builder = (table: string) => {
     let filters: ((r: Record<string, unknown>) => boolean)[] = [];
@@ -14,9 +16,10 @@ function fakeSupabase(opts: { failInsertOnce?: 'unique' } = {}) {
     let payload: Record<string, unknown> = {};
     let single = false;
     let lim = Infinity;
+    let sort: { col: string; asc: boolean } | null = null;
     const q = {
       select: () => q,
-      order: () => q,
+      order: (col: string, o?: { ascending?: boolean }) => ((sort = { col, asc: o?.ascending ?? true }), q),
       limit: (n: number) => ((lim = n), q),
       eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), q),
       gte: (c: string, v: string) => (filters.push((r) => String(r[c]) >= v), q),
@@ -27,6 +30,7 @@ function fakeSupabase(opts: { failInsertOnce?: 'unique' } = {}) {
         return q;
       },
       maybeSingle: () => ((single = true), q),
+      single: () => ((single = true), q),
       insert: (row: Record<string, unknown>) => ((op = 'insert'), (payload = row), q),
       update: (patch: Record<string, unknown>) => ((op = 'update'), (payload = patch), q),
       then: (resolve: (v: unknown) => void) => {
@@ -37,6 +41,11 @@ function fakeSupabase(opts: { failInsertOnce?: 'unique' } = {}) {
             rows.push({ ...payload, id: 'winner-id' }); // a concurrent request stored the same key first
             return resolve({ error: { code: '23505', message: 'duplicate key' } });
           }
+          if (table === 'pricing_versions') {
+            const row = { ...payload, version: rows.length + 1, created_at: new Date().toISOString() };
+            rows.push(row);
+            return resolve({ data: single ? row : [row], error: null });
+          }
           const c = payload.contact as Record<string, string>;
           rows.push({ ...payload, contact_search: `${c.fullName} ${c.email} ${c.phone}` });
           return resolve({ error: null });
@@ -45,6 +54,10 @@ function fakeSupabase(opts: { failInsertOnce?: 'unique' } = {}) {
         if (op === 'update') {
           match.forEach((r) => Object.assign(r, payload));
           return resolve({ error: null });
+        }
+        if (sort) {
+          const { col, asc } = sort;
+          match.sort((a, b) => ((a[col] as number) - (b[col] as number)) * (asc ? 1 : -1));
         }
         const data = match.slice(0, lim);
         return resolve({ data: single ? (data[0] ?? null) : data, error: null });
@@ -139,5 +152,20 @@ describe('Supabase lead store', () => {
     const store = openSupabaseStore('', '', client);
     await store.insert(lead());
     await expect(store.list('demo', { q: 'x),id.neq.(0' })).resolves.toEqual([]);
+  });
+
+  it('saves pricing versions and returns the newest as active', async () => {
+    const { client } = fakeSupabase();
+    const store = openSupabaseStore('', '', client);
+    expect(await store.pricing.latest()).toBeNull();
+    const a = await store.pricing.save({ status: 'demo', note: 'one', author: 'CEO', config: toStored(DEMO_PRICING) });
+    const b = await store.pricing.save({ status: 'approved', note: 'two', author: 'CEO', config: toStored(DEMO_PRICING) });
+    expect([a.version, b.version]).toEqual([1, 2]);
+    const latest = await store.pricing.latest();
+    expect(latest!.version).toBe(2);
+    expect(latest!.config.id).toBe('v2');
+    expect(latest!.config.status).toBe('approved');
+    expect((await store.pricing.list()).map((v) => v.version)).toEqual([2, 1]);
+    expect((await store.pricing.get(1))!.note).toBe('one');
   });
 });

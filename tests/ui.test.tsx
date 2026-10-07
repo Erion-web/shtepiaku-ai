@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import type { AppConfig } from '../src/lib/api';
 import { completeAnswers } from './fixtures';
+import { toStored } from '../shared/pricing/stored';
+import { DEMO_PRICING } from '../shared/pricing/demo';
 import { IDLE_MS, WARNING_SECONDS } from '../src/state/booth';
 
 const config = (over: Partial<AppConfig> = {}): AppConfig => ({
@@ -12,6 +14,7 @@ const config = (over: Partial<AppConfig> = {}): AppConfig => ({
   pricingId: 'demo-2026.09',
   pricingStatus: 'demo',
   estimatesEnabled: true,
+  pricing: toStored(DEMO_PRICING),
   aiEnabled: false,
   staffConfigured: true,
   dev: false,

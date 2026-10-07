@@ -1,18 +1,18 @@
-// Chooses which pricing configuration may be used.
+// Decides whether the active pricing may be shown publicly.
 //
-// Live public estimates require an approved configuration. None has been supplied
-// yet, so APPROVED_PRICING is null and live mode shows plans without prices.
-// To go live: add an approved config file, set APPROVED_PRICING to it, and run
-// with PRICING_MODE=live.
+// The active pricing is the latest version saved by staff on the dashboard's
+// "Çmimet" page (or DEMO_PRICING until anyone has saved one). Its status is
+// either "demo" (shown with the "Çmime demonstruese" label, leads stored as demo)
+// or "approved" (real Shtepiaku prices, leads stored as real).
+//
+// PRICING_MODE=live is a safety switch: the public site then never shows demo
+// prices — plans are shown without prices until an approved version exists.
 
 import type { PricingConfig } from './config';
-import { DEMO_PRICING } from './demo';
 
 export type PricingMode = 'demo' | 'live';
 
-export const APPROVED_PRICING: PricingConfig | null = null;
-
-export function resolvePricing(mode: PricingMode, approved: PricingConfig | null = APPROVED_PRICING): PricingConfig | null {
-  if (mode === 'demo') return DEMO_PRICING;
-  return approved && approved.status === 'approved' ? approved : null;
+export function resolvePricing(mode: PricingMode, active: PricingConfig): PricingConfig | null {
+  if (mode === 'demo') return active;
+  return active.status === 'approved' ? active : null;
 }

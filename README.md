@@ -20,8 +20,10 @@ Booth mode (shared tablets): open `/?booth=1` once on the device, or switch it o
 
 | Concern | Where |
 | --- | --- |
-| Pricing configuration (DEMO) | `shared/pricing/demo.ts` |
+| Starting prices (DEMO) | `shared/pricing/demo.ts` |
 | Which configuration may be used | `shared/pricing/registry.ts` |
+| Saved price versions, validation | `shared/pricing/stored.ts`, `server/store.ts` |
+| Price editor (staff) | `src/screens/staff/PricingEditor.tsx`, `src/screens/staff/pricingFields.ts` |
 | Calculations | `shared/pricing/engine.ts` |
 | Service eligibility and recommendations | `shared/rules.ts`, `shared/plans.ts` |
 | Approved service descriptions | `shared/catalog.ts` |
@@ -33,17 +35,16 @@ Booth mode (shared tablets): open `/?booth=1` once on the device, or switch it o
 
 The engine runs in the browser for instant recalculation and again on the server when a request is submitted; stored estimates always come from the server.
 
-## Prices: demo until tariffs are approved
+## Prices: edited on the staff dashboard
 
-No real Shtepiaku tariffs have been supplied. `DEMO_PRICING` holds placeholder figures, every screen using it shows “Çmime demonstruese”, and leads created with it go to the `demo_leads` table.
+Staff change prices at `/staff` → **Çmimet**: every value has a plain-language label, Low/High fields, the previous value next to any change, and a live preview of three example offices. Each save is a new version (with note and name); older versions can be restored, and nothing is ever deleted.
 
-To go live:
+- Until someone saves, the bundled `DEMO_PRICING` (`shared/pricing/demo.ts`) is used.
+- **Demo** status: prices show the “Çmime demonstruese” label and leads go to `demo_leads`.
+- **Approved** status (asks for confirmation): the label disappears and new leads go to `leads`.
+- `PRICING_MODE=live` is a safety switch: demo-status prices are never shown publicly; plans appear without prices until an approved version exists.
 
-1. Add an approved configuration (same shape as `DEMO_PRICING`, `status: 'approved'`).
-2. Set `APPROVED_PRICING` to it in `shared/pricing/registry.ts`.
-3. Run with `PRICING_MODE=live`.
-
-With `PRICING_MODE=live` and no approved configuration, the app still builds plans and accepts requests but shows no prices.
+The public site loads the active prices from `/api/config`; the server re-prices every submitted request with the same version and stores its id (`v1`, `v2`, …) on the lead. Validation (`shared/pricing/stored.ts`) rejects negative values, Low above High, percentages typed as whole numbers and out-of-order area bands.
 
 ## AI
 
@@ -58,7 +59,7 @@ Set `GROQ_API_KEY` to enable AI-written explanations through Groq (`GROQ_MODEL`,
 
 ## Deploy: Supabase + Netlify
 
-1. **Supabase** — create a project. In **SQL Editor**, run `supabase/migrations/0001_leads.sql`. It creates `leads` and `demo_leads` with row-level security on and no public policies, so the anon key cannot read or write leads.
+1. **Supabase** — create a project. In **SQL Editor**, run `supabase/migrations/0001_leads.sql`, then `0002_pricing_versions.sql`. It creates `leads` and `demo_leads` with row-level security on and no public policies, so the anon key cannot read or write leads.
 2. From **Project Settings → API**, copy the **Project URL** and the **service_role** key.
 3. **Netlify** — import the GitHub repo. `netlify.toml` sets the build command, publish folder, Node version and the `/api/*` routing, so leave the build settings in the UI empty (or matching).
 4. In **Site configuration → Environment variables**, add:

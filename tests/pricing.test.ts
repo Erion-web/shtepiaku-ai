@@ -175,10 +175,9 @@ describe('additions, removals and double counting', () => {
 });
 
 describe('pricing gate', () => {
-  it('uses demo pricing in demo mode and refuses live estimates without approved tariffs', () => {
-    expect(resolvePricing('demo')!.status).toBe('demo');
-    expect(resolvePricing('live')).toBeNull();
-    expect(resolvePricing('live', { ...DEMO_PRICING })).toBeNull();
+  it('shows demo prices in demo mode and only approved prices in live mode', () => {
+    expect(resolvePricing('demo', DEMO_PRICING)!.status).toBe('demo');
+    expect(resolvePricing('live', DEMO_PRICING)).toBeNull();
     expect(resolvePricing('live', { ...DEMO_PRICING, status: 'approved' })!.status).toBe('approved');
   });
 });

@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, type AppConfig } from '../lib/api';
-import { resolvePricing } from '../../shared/pricing/registry';
+import { fromStored } from '../../shared/pricing/stored';
 import type { PricingConfig } from '../../shared/pricing/config';
 
 interface ConfigState {
@@ -21,7 +21,8 @@ export function ConfigProvider({ children, initial }: { children: ReactNode; ini
       alive = false;
     };
   }, [initial]);
-  const pricing = config && config.estimatesEnabled ? resolvePricing(config.pricingMode) : null;
+  // Prices come from the server (the version staff last saved), never from the bundle.
+  const pricing = useMemo(() => (config?.estimatesEnabled && config.pricing ? fromStored(config.pricing) : null), [config]);
   return <Ctx.Provider value={{ config, pricing }}>{children}</Ctx.Provider>;
 }
 
